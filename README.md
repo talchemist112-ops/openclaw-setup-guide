@@ -59,11 +59,26 @@ Deployed on **Windows Server 2022** with WSL1 + Ubuntu 22.04:
 | WSL + Ubuntu | Done | WSL1, Ubuntu 22.04.5 LTS, user `salman` |
 | Node.js | Done | v22.22.2 (v24 incompatible with WSL1) |
 | OpenClaw | Done | v2026.4.11, gateway mode=local |
-| API Key | **NOT DONE** | Need Anthropic/OpenAI/Google key |
+| API Keys | Done | Anthropic (Claude) + OpenAI keys configured |
+| Default Model | Done | `anthropic/claude-sonnet-4-20250514` |
+| Gateway | Done | Running via tmux, dashboard at http://127.0.0.1:18789 |
 | Channel (WhatsApp/Telegram) | **NOT DONE** | Need user to choose + configure |
-| Gateway running | **NOT DONE** | Must start manually (no systemd on WSL1) |
+| Spending Limits | **NOT DONE** | Set limits on console.anthropic.com |
 
-**To resume setup**, provide an API key and channel choice — see [03-onboarding-config.md](03-onboarding-config.md).
+### Quick Start (after initial setup is done)
+```bash
+# 1. Enter Ubuntu
+wsl -d Ubuntu -u salman
+
+# 2. Start gateway in tmux
+tmux new-session -d -s openclaw 'source ~/.bashrc && openclaw gateway --port 18789'
+
+# 3. Open browser at http://127.0.0.1:18789
+# 4. Paste gateway token and click Connect
+# 5. Chat!
+```
+
+**To continue setup** (channels, spending limits): see [04-channel-setup.md](04-channel-setup.md).
 
 ## Important Warnings
 

@@ -53,16 +53,16 @@ npm --version
 
 ### On WSL/Ubuntu (alternative)
 
-If you prefer using WSL (Windows Subsystem for Linux):
+If you prefer using WSL (Windows Subsystem for Linux) — **this is the recommended path**:
 
 ```bash
-# Install Node.js v24 using NodeSource
-curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+# Install Node.js v22 using NodeSource (NOT v24 — see warning above)
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt install -y nodejs
 
 # Verify
-node --version
-npm --version
+node --version   # Should show v22.x.x
+npm --version    # Should show 10.x.x
 ```
 
 ---
@@ -127,18 +127,60 @@ You only need the number to **receive one SMS** during setup (for WhatsApp verif
 
 ---
 
-## 1.4 — (Optional) Set Up WSL2
+## 1.4 — Set Up WSL + Ubuntu (Recommended for Windows Server)
 
-If you're on Windows and prefer to run OpenClaw in Linux (some advanced features work better), you can set up WSL2:
+OpenClaw runs best on Linux. On Windows, use WSL (Windows Subsystem for Linux):
 
+### If `wsl --install -d Ubuntu` works:
 ```powershell
 # Run in PowerShell as Administrator
 wsl --install -d Ubuntu
 ```
 
-After installation, restart your computer, then open **Ubuntu** from the Start menu and create a username/password.
+### If it fails with error 0x80072ee7 (common on Windows Server 2022):
 
-> **Note**: This is optional. OpenClaw runs fine directly on Windows via PowerShell.
+Download and import Ubuntu manually:
+
+```powershell
+# 1. Download WSL kernel (if missing)
+curl -L -o C:\Users\salman\Downloads\wsl_update_x64.msi "https://wslstorestorage.blob.core.windows.net/wslblob/wsl_update_x64.msi"
+powershell.exe -Command "Start-Process msiexec.exe -ArgumentList '/i','C:\Users\salman\Downloads\wsl_update_x64.msi','/quiet','/norestart' -Verb RunAs -Wait"
+
+# 2. Download Ubuntu rootfs (~325 MB)
+curl -L -o C:\Users\salman\Downloads\ubuntu-rootfs.tar.gz "https://cloud-images.ubuntu.com/wsl/jammy/current/ubuntu-jammy-wsl-amd64-ubuntu22.04lts.rootfs.tar.gz"
+
+# 3. Create install directory and import
+mkdir C:\Users\salman\WSL\Ubuntu
+powershell.exe -Command "& { wsl.exe --import Ubuntu C:\Users\salman\WSL\Ubuntu C:\Users\salman\Downloads\ubuntu-rootfs.tar.gz }"
+
+# 4. Verify
+powershell.exe -Command "wsl --list --verbose"
+# Should show: Ubuntu    Stopped    1
+```
+
+### Create a user (imported distros run as root):
+```bash
+# Enter WSL as root
+wsl -d Ubuntu
+
+# Create user with sudo access
+useradd -m -s /bin/bash salman
+echo 'salman ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+echo -e '[user]\ndefault=salman' > /etc/wsl.conf
+exit
+
+# Restart WSL to apply default user
+powershell.exe -Command "wsl --shutdown"
+
+# Verify — should log in as salman now
+wsl -d Ubuntu -u salman -- bash -c "whoami"
+# Expected output: salman
+```
+
+### Install tmux (needed to keep gateway alive on WSL1):
+```bash
+wsl -d Ubuntu -u root -- bash -c "apt update && apt install -y tmux"
+```
 
 ---
 

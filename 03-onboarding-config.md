@@ -65,7 +65,23 @@ openclaw dashboard
 - See connected channels
 - Monitor activity
 
+**The dashboard will ask for a Gateway Token.** Get it by running:
+```bash
+# Inside Ubuntu
+cat ~/.openclaw/openclaw.json | grep token
+```
+
+Paste the token value into the **Gateway Token** field and click **Connect**.
+
 **Try sending a test message** in the chat — type "Hello, who are you?" and press Enter. If you get a response, everything is working!
+
+> **Important on WSL1**: The gateway must be started inside **tmux** to stay alive:
+> ```bash
+> # Start gateway that survives terminal close
+> tmux new-session -d -s openclaw 'source ~/.bashrc && openclaw gateway --port 18789'
+> # Detach from tmux: Ctrl+B then D
+> # Reattach later: tmux attach -t openclaw
+> ```
 
 ### 3.4 — Understand the configuration file
 
@@ -73,10 +89,9 @@ OpenClaw stores its settings in a file called `openclaw.json`:
 
 **Location**: `~/.openclaw/openclaw.json`
 
-On Windows, this is at:
-```
-C:\Users\<your-username>\.openclaw\openclaw.json
-```
+**Inside WSL**, this is at: `/home/salman/.openclaw/openclaw.json`
+
+**From Windows**, access it via: `\\wsl$\Ubuntu\home\salman\.openclaw\openclaw.json`
 
 Here's what a minimal config looks like:
 
