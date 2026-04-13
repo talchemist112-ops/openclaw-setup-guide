@@ -4,6 +4,44 @@
 
 ---
 
+### WSL1-specific issues (Windows Server 2022)
+
+These issues were encountered during actual deployment on Windows Server 2022 build 20348:
+
+**`wsl --install -d Ubuntu` fails with error 0x80072ee7**
+- This is a DNS/network issue blocking Microsoft Store downloads
+- **Fix**: Manually download Ubuntu rootfs and import it:
+```powershell
+# Download rootfs (from Windows)
+curl -L -o C:\Users\salman\Downloads\ubuntu-rootfs.tar.gz "https://cloud-images.ubuntu.com/wsl/jammy/current/ubuntu-jammy-wsl-amd64-ubuntu22.04lts.rootfs.tar.gz"
+
+# Import into WSL (run from PowerShell, NOT bash)
+powershell.exe -Command "& { wsl.exe --import Ubuntu C:\Users\salman\WSL\Ubuntu C:\Users\salman\Downloads\ubuntu-rootfs.tar.gz }"
+```
+
+**`wsl --set-default-version 2` and `wsl --set-version Ubuntu 2` print help text instead of working**
+- Known bug in the WSL build shipped with Windows Server 2022
+- WSL1 works fine for OpenClaw — just no systemd (start gateway manually)
+
+**Node.js v24: "cannot execute binary file: Exec format error"**
+- Node.js v24 binaries are incompatible with WSL1
+- **Fix**: Use Node.js v22 instead:
+```bash
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
+sudo apt install -y nodejs
+```
+
+**Imported distro runs as root by default**
+- Create a user and set it as default:
+```bash
+useradd -m -s /bin/bash salman
+echo 'salman ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+echo -e '[user]\ndefault=salman' > /etc/wsl.conf
+```
+- Then restart WSL: `wsl --shutdown` (from PowerShell)
+
+---
+
 ### "openclaw" command not found
 
 **What it means**: OpenClaw isn't installed or isn't in your system PATH.

@@ -79,7 +79,7 @@ No matter which method you used, verify OpenClaw is installed:
 openclaw --version
 ```
 
-**Expected output**: A version number (e.g., `1.4.0`)
+**Expected output**: A version number (e.g., `OpenClaw 2026.4.11 (769908e)`)
 
 ```powershell
 openclaw doctor

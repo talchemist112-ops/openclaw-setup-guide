@@ -50,6 +50,21 @@ Follow these guides **in order**:
 | Community Discord | https://discord.gg/clawd |
 | Skill Hub (plugins) | https://clawhub.ai |
 
+## Current Deployment Status (2026-04-13)
+
+Deployed on **Windows Server 2022** with WSL1 + Ubuntu 22.04:
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| WSL + Ubuntu | Done | WSL1, Ubuntu 22.04.5 LTS, user `salman` |
+| Node.js | Done | v22.22.2 (v24 incompatible with WSL1) |
+| OpenClaw | Done | v2026.4.11, gateway mode=local |
+| API Key | **NOT DONE** | Need Anthropic/OpenAI/Google key |
+| Channel (WhatsApp/Telegram) | **NOT DONE** | Need user to choose + configure |
+| Gateway running | **NOT DONE** | Must start manually (no systemd on WSL1) |
+
+**To resume setup**, provide an API key and channel choice — see [03-onboarding-config.md](03-onboarding-config.md).
+
 ## Important Warnings
 
 1. **API costs** — OpenClaw calls an LLM API (like Claude or GPT). Set spending limits on your API provider to avoid surprise bills.

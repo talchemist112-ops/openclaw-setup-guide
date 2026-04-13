@@ -13,7 +13,9 @@ Get three things ready before installing OpenClaw:
 
 Node.js is a program that lets you run JavaScript applications. OpenClaw is built with it.
 
-**Required version**: Node.js **v22.14 or newer** (v24 recommended)
+**Required version**: Node.js **v22.14 or newer** (v24 recommended, but see note below)
+
+> **WSL1 Warning**: If running on WSL version 1 (common on Windows Server 2022), Node.js v24 gives "Exec format error". Use **v22** instead. v22.22.2 is confirmed working.
 
 ### On Windows (PowerShell)
 
