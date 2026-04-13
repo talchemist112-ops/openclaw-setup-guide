@@ -30,22 +30,25 @@ OpenClaw is **partially deployed** on this server. Here's what's done and what's
 ### What's CONFIGURED (2026-04-13)
 - **Anthropic API key** — configured in `~/.bashrc` as `ANTHROPIC_API_KEY` (DO NOT commit to git)
 - **OpenAI API key** — configured in `~/.bashrc` as `OPENAI_API_KEY` (DO NOT commit to git)
+- **Claude Code OAuth profile**: `anthropic:claude-cli` added to OpenClaw auth store from Windows Claude Code credentials (DO NOT commit tokens)
 - **Default model**: `anthropic/claude-sonnet-4-20250514`
-- **Gateway confirmed working** with Claude Sonnet model
+- **Auth order for Anthropic**: `anthropic:claude-cli`, then `anthropic:default`
+- **Gateway confirmed working** with Claude Sonnet model via Claude Code OAuth profile
 
 ### What's LEFT TO DO
 1. **No messaging channel connected** — User needs to pick WhatsApp/Telegram/Discord
    - WhatsApp: needs a dedicated phone number + QR scan
    - Telegram: needs a bot token from @BotFather
    - Discord: needs a bot token from Discord Developer Portal
-2. **Spending limit** — User should set a monthly spend limit on Anthropic console
+2. **Provider billing** — Anthropic API key has low/empty credits and OpenAI API key is over quota. Current working path uses Claude Code OAuth instead.
 3. **Bundled plugin deps** — Run `wsl -d Ubuntu -u salman -- bash -c "source ~/.bashrc && openclaw doctor --fix"` for full plugin support
 4. **Customize assistant** — Edit SOUL.md, USER.md in workspace to personalize behavior
 
 ### SECURITY — API Keys
-- Keys are stored ONLY in `/home/salman/.bashrc` inside WSL (local to this machine)
+- API keys are stored in `/home/salman/.bashrc` and OpenClaw auth profiles inside WSL (local to this machine)
+- Claude Code OAuth source credentials are on Windows at `C:\Users\salman\.claude\.credentials.json`; copied into OpenClaw auth profiles as `anthropic:claude-cli`
 - **NEVER** commit keys to git, CLAUDE.md, or any tracked file
-- To rotate keys: edit `~/.bashrc`, update the values, restart gateway
+- To rotate keys: edit `~/.bashrc` and/or refresh Claude Code login, update auth profiles, restart gateway
 - Anthropic console: https://console.anthropic.com (set spending limits here)
 - OpenAI platform: https://platform.openai.com (set spending limits here)
 
@@ -170,12 +173,23 @@ tmux new -d -s openclaw 'openclaw gateway --port 18789'
 ```
 
 ### Critical: Create the auth store file
-Setting the env var in `~/.bashrc` is NOT enough. You MUST also create the auth-profiles.json:
+Setting the env var in `~/.bashrc` is NOT enough. You MUST also create `auth-profiles.json` in the OpenClaw 2026.4.11 profile-store format. Do NOT use the older simple `{ "anthropic": { "apiKey": "..." } }` shape; OpenClaw will ignore it and report "No API key found".
 ```bash
 cat > ~/.openclaw/agents/main/agent/auth-profiles.json << 'EOF'
 {
-  "anthropic": { "apiKey": "YOUR-ANTHROPIC-KEY" },
-  "openai": { "apiKey": "YOUR-OPENAI-KEY" }
+  "version": 1,
+  "profiles": {
+    "anthropic:default": {
+      "type": "api_key",
+      "provider": "anthropic",
+      "key": "sk-ant-YOUR-KEY-HERE"
+    },
+    "openai:default": {
+      "type": "api_key",
+      "provider": "openai",
+      "key": "sk-proj-YOUR-KEY-HERE"
+    }
+  }
 }
 EOF
 chmod 600 ~/.openclaw/agents/main/agent/auth-profiles.json
@@ -237,16 +251,23 @@ Casual daily use ≈ $0.50-$5/day depending on model and usage.
 
 ### Issue: "No API key found for provider" even though env var is set
 - **Symptom**: Dashboard shows `No API key found for provider "anthropic". Auth store: ~/.openclaw/agents/main/agent/auth-profiles.json`
-- **Root cause**: OpenClaw looks for API keys in its **auth store file**, not just environment variables. The `~/.bashrc` env var alone is not enough.
-- **Solution**: Create the auth-profiles.json file manually:
+- **Root cause**: OpenClaw 2026.4.11 expects `auth-profiles.json` to contain a `version` plus `profiles` object. The older/simple shape (`"anthropic": { "apiKey": "..." }`) is parsed as invalid, so OpenClaw says the key is missing even when the key is present in the file.
+- **Solution**: Create or convert the auth-profiles.json file using the profile-store format:
   ```bash
   cat > ~/.openclaw/agents/main/agent/auth-profiles.json << 'EOF'
   {
-    "anthropic": {
-      "apiKey": "sk-ant-YOUR-KEY-HERE"
-    },
-    "openai": {
-      "apiKey": "sk-proj-YOUR-KEY-HERE"
+    "version": 1,
+    "profiles": {
+      "anthropic:default": {
+        "type": "api_key",
+        "provider": "anthropic",
+        "key": "sk-ant-YOUR-KEY-HERE"
+      },
+      "openai:default": {
+        "type": "api_key",
+        "provider": "openai",
+        "key": "sk-proj-YOUR-KEY-HERE"
+      }
     }
   }
   EOF
@@ -255,6 +276,20 @@ Casual daily use ≈ $0.50-$5/day depending on model and usage.
   Then restart the gateway.
 - **Don't try**: Only setting `ANTHROPIC_API_KEY` in `~/.bashrc` — the env var alone doesn't populate the auth store. You need both (env var for CLI, auth-profiles.json for the agent runtime).
 - **Don't try**: `openclaw configure --section model` with piped input — the interactive wizard doesn't accept piped/automated input.
+
+### Issue: OpenClaw auth store had keys but wrong schema (fixed 2026-04-13)
+- **Symptom**: Gateway started and logged `agent model: anthropic/claude-sonnet-4-20250514`, but every chat request failed with `Embedded agent failed before reply: No API key found for provider "anthropic"`.
+- **Root cause**: `/home/salman/.openclaw/agents/main/agent/auth-profiles.json` contained non-empty Anthropic and OpenAI keys, but in the old shape (`anthropic.apiKey` and `openai.apiKey`). Installed OpenClaw 2026.4.11 only accepts persisted auth profiles under `profiles`, with each entry using `type: "api_key"`, `provider`, and `key`.
+- **Solution applied**: Backed up the old auth file to `/home/salman/.openclaw/agents/main/agent/auth-profiles.json.bak-before-schema-fix`, converted it to `version: 1` / `profiles` format with `anthropic:default` and `openai:default`, set permissions to `600`, and restarted the tmux gateway.
+- **Verification**: After restart, `/tmp/openclaw-gw-live.log` showed `agent model: anthropic/claude-sonnet-4-20250514` and `ready (5 plugins...)` with no new `No API key found` error in the fresh log.
+- **Don't try**: Recreating only `~/.bashrc` exports. The failure was not missing env vars; it was the OpenClaw auth-profile schema.
+
+### Issue: API keys valid but provider billing blocked inference (fixed 2026-04-13)
+- **Symptom**: Anthropic API-key profile produced `Your credit balance is too low to access the Anthropic API`. Switching to OpenAI produced `You exceeded your current quota`.
+- **Root cause**: Both normal provider API-key paths were blocked by billing/quota, even though the auth profiles were valid.
+- **Solution applied**: Copied the Windows Claude Code OAuth credential from `C:\Users\salman\.claude\.credentials.json` into `/home/salman/.openclaw/agents/main/agent/auth-profiles.json` as `anthropic:claude-cli`, set Anthropic auth order to `anthropic:claude-cli, anthropic:default`, switched default model back to `anthropic/claude-sonnet-4-20250514`, and restarted the gateway.
+- **Verification**: `openclaw agent --agent main --message 'Reply with exactly: OK' --timeout 180` returned `OK`.
+- **Don't try**: Treating the 7:18-7:25 dashboard entries as current after the 7:29 restart; those were historical pre-fix auth-schema errors. The later blocker was provider billing, then solved by Claude Code OAuth.
 
 ### Issue: tmux session doesn't inherit environment variables
 - **Symptom**: Gateway starts but uses wrong model or "no API key" errors
