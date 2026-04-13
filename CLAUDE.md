@@ -27,14 +27,27 @@ OpenClaw is **partially deployed** on this server. Here's what's done and what's
 - **Dashboard accessible** at http://127.0.0.1:18789 from Windows browser
 - tmux installed (`tmux 3.2a`) for persistent gateway sessions
 
-### What's LEFT TO DO (needs user input)
-1. **API key not configured** — User must provide an API key. See "API Key Setup" section below.
-2. **No messaging channel connected** — User needs to pick WhatsApp/Telegram/Discord
+### What's CONFIGURED (2026-04-13)
+- **Anthropic API key** — configured in `~/.bashrc` as `ANTHROPIC_API_KEY` (DO NOT commit to git)
+- **OpenAI API key** — configured in `~/.bashrc` as `OPENAI_API_KEY` (DO NOT commit to git)
+- **Default model**: `anthropic/claude-sonnet-4-20250514`
+- **Gateway confirmed working** with Claude Sonnet model
+
+### What's LEFT TO DO
+1. **No messaging channel connected** — User needs to pick WhatsApp/Telegram/Discord
    - WhatsApp: needs a dedicated phone number + QR scan
    - Telegram: needs a bot token from @BotFather
    - Discord: needs a bot token from Discord Developer Portal
-3. **Spending limit** — User must set a monthly spend limit on their API provider
-4. **Bundled plugin deps** — Run `wsl -d Ubuntu -u salman -- bash -c "openclaw doctor --fix"` after API key is set
+2. **Spending limit** — User should set a monthly spend limit on Anthropic console
+3. **Bundled plugin deps** — Run `wsl -d Ubuntu -u salman -- bash -c "source ~/.bashrc && openclaw doctor --fix"` for full plugin support
+4. **Customize assistant** — Edit SOUL.md, USER.md in workspace to personalize behavior
+
+### SECURITY — API Keys
+- Keys are stored ONLY in `/home/salman/.bashrc` inside WSL (local to this machine)
+- **NEVER** commit keys to git, CLAUDE.md, or any tracked file
+- To rotate keys: edit `~/.bashrc`, update the values, restart gateway
+- Anthropic console: https://console.anthropic.com (set spending limits here)
+- OpenAI platform: https://platform.openai.com (set spending limits here)
 
 ### Important Technical Notes
 - **WSL version is 1, not 2** — This server's WSL build (Windows Server 2022 build 20348) has a bug where `--set-default-version 2`, `--set-version`, and `--import --version 2` all fail silently. WSL1 works fine for Node.js/OpenClaw but does NOT support systemd. The gateway must be started manually (not as a daemon).
@@ -91,7 +104,9 @@ openclaw dashboard
 - **Gateway port**: 18789
 - **Gateway auth token**: `949b8d7760347dfa3cd74f7f7e7ea3c52de22184cb3a6f70`
 - **Dashboard URL**: http://127.0.0.1:18789
-- **Default model** (current): `openai/gpt-5.4` (auto-set by OpenClaw, not yet configured by user)
+- **Default model**: `anthropic/claude-sonnet-4-20250514` (user-configured)
+- **Fallback model**: OpenAI key also configured — can switch with `openclaw config set agents.defaults.model openai/gpt-4o`
+- **API keys location**: `~/.bashrc` inside WSL (NEVER in git-tracked files)
 
 ### Networking
 - Gateway binds to `127.0.0.1:18789` (loopback only — accessible from Windows browser, NOT from external machines)
@@ -205,6 +220,15 @@ Casual daily use ≈ $0.50-$5/day depending on model and usage.
   1. **Simple**: Open a PowerShell window, run `wsl -d Ubuntu -u salman`, then `openclaw gateway --port 18789`. Leave window open.
   2. **Better**: Install tmux (`sudo apt install -y tmux`), run `tmux new -s openclaw`, start gateway inside tmux, detach with `Ctrl+B` then `D`. Reattach with `tmux attach -t openclaw`.
 - **Don't try**: `nohup ... &`, `disown`, or background `&` — WSL1 kills all child processes when the parent shell exits regardless.
+
+### Issue: tmux session doesn't inherit environment variables
+- **Symptom**: Gateway starts but uses wrong model or "no API key" errors
+- **Root cause**: tmux creates a new shell that doesn't inherit exported env vars from the parent
+- **Solution**: Source ~/.bashrc inside the tmux command:
+  ```bash
+  tmux new-session -d -s openclaw 'source ~/.bashrc && openclaw gateway --port 18789'
+  ```
+- **Don't try**: Exporting vars before `tmux new-session` — tmux forks a new shell and loses them
 
 ### Issue: Imported WSL distro runs as root by default
 - **Symptom**: All commands run as root, no regular user exists
