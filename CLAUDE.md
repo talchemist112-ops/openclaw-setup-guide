@@ -169,10 +169,24 @@ tmux kill-session -t openclaw 2>/dev/null
 tmux new -d -s openclaw 'openclaw gateway --port 18789'
 ```
 
+### Critical: Create the auth store file
+Setting the env var in `~/.bashrc` is NOT enough. You MUST also create the auth-profiles.json:
+```bash
+cat > ~/.openclaw/agents/main/agent/auth-profiles.json << 'EOF'
+{
+  "anthropic": { "apiKey": "YOUR-ANTHROPIC-KEY" },
+  "openai": { "apiKey": "YOUR-OPENAI-KEY" }
+}
+EOF
+chmod 600 ~/.openclaw/agents/main/agent/auth-profiles.json
+```
+Then restart the gateway.
+
 ### After setting any API key
-1. Paste gateway token into dashboard: `949b8d7760347dfa3cd74f7f7e7ea3c52de22184cb3a6f70`
-2. Click **Connect**
-3. Type "Hello" — if you get a response, it's working
+1. Restart gateway: `tmux kill-session -t openclaw; tmux new-session -d -s openclaw 'source ~/.bashrc && openclaw gateway --port 18789'`
+2. Open browser at **http://127.0.0.1:18789**
+3. Paste gateway token and click **Connect**
+4. Type "Hello" — if you get a response, it's working
 
 ### Cost comparison
 | Provider | Model | Quality | Cost per 1M tokens |
@@ -220,6 +234,27 @@ Casual daily use ≈ $0.50-$5/day depending on model and usage.
   1. **Simple**: Open a PowerShell window, run `wsl -d Ubuntu -u salman`, then `openclaw gateway --port 18789`. Leave window open.
   2. **Better**: Install tmux (`sudo apt install -y tmux`), run `tmux new -s openclaw`, start gateway inside tmux, detach with `Ctrl+B` then `D`. Reattach with `tmux attach -t openclaw`.
 - **Don't try**: `nohup ... &`, `disown`, or background `&` — WSL1 kills all child processes when the parent shell exits regardless.
+
+### Issue: "No API key found for provider" even though env var is set
+- **Symptom**: Dashboard shows `No API key found for provider "anthropic". Auth store: ~/.openclaw/agents/main/agent/auth-profiles.json`
+- **Root cause**: OpenClaw looks for API keys in its **auth store file**, not just environment variables. The `~/.bashrc` env var alone is not enough.
+- **Solution**: Create the auth-profiles.json file manually:
+  ```bash
+  cat > ~/.openclaw/agents/main/agent/auth-profiles.json << 'EOF'
+  {
+    "anthropic": {
+      "apiKey": "sk-ant-YOUR-KEY-HERE"
+    },
+    "openai": {
+      "apiKey": "sk-proj-YOUR-KEY-HERE"
+    }
+  }
+  EOF
+  chmod 600 ~/.openclaw/agents/main/agent/auth-profiles.json
+  ```
+  Then restart the gateway.
+- **Don't try**: Only setting `ANTHROPIC_API_KEY` in `~/.bashrc` — the env var alone doesn't populate the auth store. You need both (env var for CLI, auth-profiles.json for the agent runtime).
+- **Don't try**: `openclaw configure --section model` with piped input — the interactive wizard doesn't accept piped/automated input.
 
 ### Issue: tmux session doesn't inherit environment variables
 - **Symptom**: Gateway starts but uses wrong model or "no API key" errors
