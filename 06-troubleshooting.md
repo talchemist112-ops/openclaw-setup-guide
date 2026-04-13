@@ -4,258 +4,296 @@
 
 ---
 
-### Error: "cannot open display" or "No display available"
+### "openclaw" command not found
 
-**What it means**: The game can't find a screen to draw on.
+**What it means**: OpenClaw isn't installed or isn't in your system PATH.
 
-**Fix for WSLg** (Windows 11 / recent Windows Server 2022):
-```bash
-# Check if WSLg is working
-echo $DISPLAY
-```
-It should show something like `:0` or `:0.0`. If empty:
-```bash
-export DISPLAY=:0
-```
+**Fix (Windows)**:
+```powershell
+# Reinstall
+npm install -g openclaw@latest
 
-**Fix for VcXsrv** (older Windows):
-1. Make sure **XLaunch** is running on your Windows desktop
-2. Set the display variable:
-```bash
-export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0
-echo $DISPLAY
-```
-3. You should see an IP address followed by `:0`
+# If still not found, check where npm puts global packages
+npm config get prefix
 
----
-
-### Error: "CLAW.REZ not found" or "Failed to load resources"
-
-**What it means**: The game can't find the original game files.
-
-**Fix**:
-```bash
-# Make sure you're in the right directory
-cd ~/projects/OpenClaw/Build_Release
-
-# Check the file exists
-ls -la CLAW.REZ
+# Add that path to your system PATH if needed
 ```
 
-If the file is missing, go back to [Step 4](04-game-files.md).
-
-If the file exists but the game still can't find it, try:
+**Fix (Linux/macOS)**:
 ```bash
-# Run from the correct directory
-cd ~/projects/OpenClaw/Build_Release
-./openclaw
-```
+# Check if it's installed somewhere
+which openclaw || npx openclaw --version
 
-The game must be launched from the `Build_Release` directory.
-
----
-
-### Error: "libSDL2 not found" or missing .so files
-
-**What it means**: SDL2 libraries aren't installed or can't be found.
-
-**Fix**:
-```bash
-# Reinstall all SDL2 libraries
-sudo apt install -y libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libsdl2-gfx-dev
-```
-
-If that doesn't help:
-```bash
-# Check if the libraries are present
-ldconfig -p | grep SDL2
-```
-You should see multiple lines with `libSDL2`. If not, try:
-```bash
-sudo ldconfig
+# Reinstall
+npm install -g openclaw@latest
 ```
 
 ---
 
-### Error: CMake fails with "Could not find SDL2"
+### Gateway not starting / port 18789 in use
 
-**What it means**: CMake can't locate the SDL2 development files.
-
-**Fix**:
-```bash
-# Make sure dev packages are installed (not just runtime packages)
-sudo apt install -y libsdl2-dev
-
-# Clean the build folder and try again
-cd ~/projects/OpenClaw
-rm -rf build
-mkdir build
-cd build
-cmake ..
-```
-
----
-
-### Error: "make" fails with compilation errors
-
-**Possible fixes**:
-
-1. **Missing dependency**:
-```bash
-sudo apt install -y build-essential cmake libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libsdl2-gfx-dev libtinyxml-dev
-```
-
-2. **Out of memory** (common with WSL):
-```bash
-# Use fewer parallel jobs
-make -j2
-# Or single-threaded if still failing
-make
-```
-
-3. **Clean build** (start fresh):
-```bash
-cd ~/projects/OpenClaw
-rm -rf build
-mkdir build
-cd build
-cmake ..
-make -j$(nproc)
-```
-
----
-
-### No background music
-
-**What it means**: MIDI playback isn't configured.
-
-**Fix**:
-```bash
-# Install MIDI support
-sudo apt install -y timidity freepats
-
-# Start timidity as a MIDI server
-timidity -iA &
-
-# Then launch the game
-./openclaw
-```
-
----
-
-### Game runs but window is tiny / wrong resolution
-
-**Fix**: Edit the config file:
-```bash
-nano ~/projects/OpenClaw/Build_Release/config.xml
-```
-
-Look for resolution settings and change them. For example:
-```xml
-<Display>
-    <Resolution width="1920" height="1080"/>
-    <Fullscreen>false</Fullscreen>
-</Display>
-```
-
-Save with **Ctrl+O**, then **Enter**, then exit with **Ctrl+X**.
-
----
-
-### Game is very slow / low FPS
-
-**Possible causes and fixes**:
-
-1. **GPU acceleration not available in WSL** — This is a known limitation. Try:
-   ```bash
-   export LIBGL_ALWAYS_SOFTWARE=1
-   ./openclaw
-   ```
-
-2. **VcXsrv performance** — If using VcXsrv, make sure you selected **"Native opengl"** option when launching XLaunch.
-
-3. **WSL memory limit** — Create or edit `.wslconfig` on Windows:
-   Open PowerShell and run:
-   ```powershell
-   notepad $env:USERPROFILE\.wslconfig
-   ```
-   Add:
-   ```ini
-   [wsl2]
-   memory=4GB
-   processors=4
-   ```
-   Then restart WSL:
-   ```powershell
-   wsl --shutdown
-   ```
-
----
-
-### WSL won't start / "The WSL 2 kernel file is not found"
+**What it means**: Something else is using port 18789, or the gateway crashed.
 
 **Fix**:
 ```powershell
-# Run in PowerShell as Administrator
-wsl --update
+# Check what's using the port (Windows)
+netstat -ano | findstr 18789
+
+# Kill the process using that PID
+taskkill /PID <PID_NUMBER> /F
+
+# Restart the gateway
+openclaw gateway --port 18789
 ```
 
-If that doesn't work:
-```powershell
-# Force update
-wsl --update --web-download
-```
+```bash
+# Check what's using the port (Linux)
+lsof -i :18789
 
-Then restart your computer.
+# Kill it
+kill -9 <PID>
+
+# Restart
+openclaw gateway --port 18789
+```
 
 ---
 
-### "Permission denied" when running ./openclaw
+### WhatsApp QR code not appearing
+
+**What it means**: The WhatsApp plugin isn't installed or the gateway isn't running.
+
+**Fix**:
+```powershell
+# Make sure gateway is running
+openclaw gateway status
+
+# Reinstall WhatsApp plugin
+openclaw plugins install @openclaw/whatsapp
+
+# Try login again
+openclaw channels login --channel whatsapp
+```
+
+---
+
+### WhatsApp disconnects frequently
+
+**What it means**: The session keeps dropping.
+
+**Fix**:
+```powershell
+# Check logs for errors
+openclaw logs --follow
+
+# Logout and re-link
+openclaw channels logout --channel whatsapp
+openclaw channels login --channel whatsapp
+```
+
+Also make sure:
+- Your internet connection is stable
+- The gateway process hasn't crashed (check `openclaw gateway status`)
+- WhatsApp on the phone hasn't been logged out
+
+---
+
+### Assistant not responding to messages
+
+**Check these in order:**
+
+1. **Is the gateway running?**
+```powershell
+openclaw gateway status
+```
+
+2. **Is the channel connected?**
+```powershell
+openclaw channels status
+```
+
+3. **Are you in the allowFrom list?**
+Check `~/.openclaw/openclaw.json` — your phone number must be in the `allowFrom` array.
+
+4. **Is the API key valid?**
+```powershell
+openclaw doctor
+```
+
+5. **Check the logs for errors:**
+```powershell
+openclaw logs --follow
+```
+
+---
+
+### "API key invalid" or authentication errors
+
+**What it means**: Your AI provider API key is wrong or expired.
+
+**Fix**:
+```powershell
+# Re-run onboarding to reset the API key
+openclaw onboard
+```
+
+Or manually edit the config:
+```powershell
+openclaw config edit
+```
+
+And update the API key in the provider section.
+
+---
+
+### High API costs / runaway spending
+
+**What happened**: OpenClaw made too many API calls (especially if heartbeat/proactive mode is on).
+
+**Immediate fix**:
+```powershell
+# Stop the gateway immediately
+openclaw gateway stop
+
+# Or kill all openclaw processes
+taskkill /IM openclaw* /F   # Windows
+pkill openclaw              # Linux
+```
+
+**Prevent it**:
+1. Set spending limits on your API provider's dashboard
+2. Disable heartbeat until you're comfortable:
+```json5
+{
+  heartbeat: {
+    every: "0m"
+  }
+}
+```
+3. Start with a cheaper model like `claude-haiku-4-5-20251001`
+
+---
+
+### "Permission denied" errors on Linux/WSL
 
 **Fix**:
 ```bash
-chmod +x ~/projects/OpenClaw/Build_Release/openclaw
+# Fix ownership of OpenClaw config
+sudo chown -R $USER:$USER ~/.openclaw
+
+# Fix npm global permissions
+mkdir -p ~/.npm-global
+npm config set prefix '~/.npm-global'
+echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
+source ~/.bashrc
 ```
 
 ---
 
-### Audio crackling or distortion
+### Node.js version too old
 
-**Fix**: Try different audio settings:
-```bash
-export SDL_AUDIODRIVER=pulseaudio
-./openclaw
+**What it means**: You need Node.js v22.14 or newer.
+
+**Fix**:
+```powershell
+# Check current version
+node --version
+
+# If below v22.14, download the latest from https://nodejs.org
+# Or use nvm (Node Version Manager):
 ```
 
-Or:
+**Windows**:
+Download the latest LTS from https://nodejs.org and run the installer.
+
+**Linux**:
 ```bash
-export SDL_AUDIODRIVER=alsa
-./openclaw
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+sudo apt install -y nodejs
 ```
+
+---
+
+### Dashboard won't open in browser
+
+**Fix**:
+```powershell
+# Check the gateway is running
+openclaw gateway status
+
+# Manually open the URL
+# Default: http://localhost:18789
+```
+
+If using WSL, the dashboard might be at `http://localhost:18789` on your Windows browser (WSL forwards ports automatically).
+
+---
+
+### Messages arrive but responses are slow
+
+**Possible causes**:
+
+1. **Model is too heavy** — Switch to a faster model:
+```json5
+{
+  agent: {
+    model: "anthropic/claude-haiku-4-5-20251001"  // Fastest
+  }
+}
+```
+
+2. **Network latency** — Check your internet speed
+
+3. **Gateway overloaded** — Restart:
+```powershell
+openclaw gateway restart
+```
+
+---
+
+## Full diagnostic
+
+When all else fails, run the complete diagnostic:
+
+```powershell
+openclaw doctor
+openclaw status --all
+openclaw logs --follow
+```
+
+Share the output from these commands when asking for help.
+
+---
+
+## Getting help
+
+- **Official docs**: https://docs.openclaw.ai
+- **GitHub Issues**: https://github.com/openclaw/openclaw/issues
+- **Community Discord**: https://discord.gg/clawd
+- **Skill Hub**: https://clawhub.ai
 
 ---
 
 ## Nuclear option: Start completely fresh
 
-If nothing works and you want to start over:
+If you want to wipe everything and start over:
 
-```bash
-# Remove everything
-rm -rf ~/projects/OpenClaw
+```powershell
+# Uninstall OpenClaw
+npm uninstall -g openclaw
 
-# Then go back to Step 3 and start again
+# Delete all config and data
+# WARNING: This deletes all your settings, workspace, and connected accounts!
 ```
 
-And revisit each step:
-1. [01-wsl-setup.md](01-wsl-setup.md)
-2. [02-dependencies.md](02-dependencies.md)
-3. [03-clone-and-build.md](03-clone-and-build.md)
-4. [04-game-files.md](04-game-files.md)
-5. [05-run-and-play.md](05-run-and-play.md)
+**Windows**:
+```powershell
+Remove-Item -Recurse -Force $env:USERPROFILE\.openclaw
+```
 
----
+**Linux/macOS**:
+```bash
+rm -rf ~/.openclaw
+```
 
-## Still stuck?
-
-- **OpenClaw GitHub Issues**: https://github.com/pjasicek/OpenClaw/issues — Search for your error or ask the community
-- **WSL Documentation**: https://learn.microsoft.com/en-us/windows/wsl/ — Official Microsoft WSL docs
+Then go back to [Step 2](02-install-openclaw.md) and start again.
