@@ -184,6 +184,89 @@ And update the API key in the provider section.
 
 ---
 
+### Anthropic API key has low balance / OpenAI quota exceeded
+
+**What it means**: Your auth file is valid, but the provider is rejecting requests because billing is exhausted.
+
+**What we saw**:
+- Anthropic: `Your credit balance is too low to access the Anthropic API`
+- OpenAI: `You exceeded your current quota`
+
+This means:
+- The API keys are present and readable
+- OpenClaw is configured correctly
+- The failure is now billing/quota, not local setup
+
+**Fix / workaround**: Use **Claude Code OAuth** instead of the Anthropic API key.
+
+**How we achieved it**:
+```powershell
+# Make sure Claude Code is already logged in on Windows.
+# Expected source file:
+C:\Users\salman\.claude\.credentials.json
+```
+
+```bash
+# Add the Claude Code OAuth credential to OpenClaw's auth store
+# as a new Anthropic profile named anthropic:claude-cli.
+node -e "
+const fs=require('fs'), os=require('os');
+const storePath=os.homedir()+'/.openclaw/agents/main/agent/auth-profiles.json';
+const claudePath='/mnt/c/Users/salman/.claude/.credentials.json';
+const backup=storePath+'.bak-before-claude-code-profile';
+const store=JSON.parse(fs.readFileSync(storePath,'utf8'));
+const creds=JSON.parse(fs.readFileSync(claudePath,'utf8')).claudeAiOauth;
+fs.copyFileSync(storePath, backup);
+store.version=store.version || 1;
+store.profiles=store.profiles || {};
+store.profiles['anthropic:claude-cli'] = {
+  type: 'oauth',
+  provider: 'anthropic',
+  access: creds.accessToken,
+  refresh: creds.refreshToken,
+  expires: creds.expiresAt,
+  managedBy: 'claude-code'
+};
+fs.writeFileSync(storePath, JSON.stringify(store, null, 2) + '\n', { mode: 0o600 });
+fs.chmodSync(storePath, 0o600);
+"
+
+# Tell OpenClaw to prefer Claude Code for Anthropic requests.
+openclaw models auth order set --provider anthropic anthropic:claude-cli anthropic:default
+
+# Switch back to the Claude model.
+openclaw config set agents.defaults.model anthropic/claude-sonnet-4-20250514
+
+# Restart the gateway.
+tmux kill-session -t openclaw 2>/dev/null || true
+tmux new-session -d -s openclaw 'source ~/.bashrc >/dev/null 2>&1; openclaw gateway --port 18789 2>&1 | tee /tmp/openclaw-gw-live.log'
+```
+
+**Verify**:
+```bash
+# Check the current model
+openclaw config get agents.defaults.model
+
+# Check Anthropic auth order
+openclaw models auth order get --provider anthropic
+
+# Send a tiny test prompt
+openclaw agent --agent main --message 'Reply with exactly: OK' --timeout 180
+```
+
+If it works, the final command should return:
+
+```text
+OK
+```
+
+**Don't try**:
+- Don't keep debugging `auth-profiles.json` if the log clearly says `credit balance is too low` or `quota exceeded`
+- Don't assume old dashboard log entries are current after a gateway restart
+- Don't commit `C:\Users\salman\.claude\.credentials.json` or copied OAuth tokens to git
+
+---
+
 ### High API costs / runaway spending
 
 **What happened**: OpenClaw made too many API calls (especially if heartbeat/proactive mode is on).
