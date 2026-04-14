@@ -271,6 +271,50 @@ openclaw agent --agent main --message 'Reply with exactly: OK' --timeout 180
 - `gh` was not installed in Ubuntu
 - SSH to GitHub failed from WSL1: `ssh: connect to host github.com port 22: Connection refused`
 
+**Best working fix on this machine**: use native GitHub CLI login in Ubuntu with the browser/device-code flow.
+
+**Why this is the preferred path**:
+- It gives OpenClaw a real Ubuntu-side GitHub session
+- It avoids Windows credential popups during non-interactive git operations
+- It matches the login flow the user already used on Windows: browser link + one-time code
+
+**Setup that worked**:
+```bash
+sudo apt-get update
+sudo apt-get install -y gh
+gh auth login --hostname github.com --web
+gh auth setup-git
+```
+
+During login on this machine, the browser opener failed because no WSL browser opener was installed:
+```text
+Failed opening a web browser at https://github.com/login/device
+exec: "xdg-open,x-www-browser,www-browser,wslview": executable file not found in $PATH
+```
+
+That was still fine:
+- `gh` printed a one-time code
+- the GitHub device URL was opened manually in the Windows browser
+- login completed successfully
+
+**How to verify**:
+```bash
+gh auth status
+git config --global --list | grep '^credential'
+git -C /mnt/c/Users/salman/GitHub/salman/openclaw-setup-guide ls-remote origin HEAD
+GIT_TERMINAL_PROMPT=0 git -c credential.interactive=never -c core.askPass=echo -C /mnt/c/Users/salman/GitHub/salman/openclaw-setup-guide push --dry-run origin main
+```
+
+**Expected working git helper**:
+```text
+credential.https://github.com.helper=
+credential.https://github.com.helper=!/usr/bin/gh auth git-credential
+```
+
+**Successful result we got**:
+- `gh auth status` showed login as `talchemist112-ops`
+- `git push --dry-run origin main` returned `Everything up-to-date`
+
 **First workaround we tried**: make Ubuntu git reuse the existing Windows Git Credential Manager instead of creating a second separate GitHub login just for WSL/OpenClaw.
 
 **Why this works**:
@@ -301,7 +345,7 @@ Expected result:
   `remote: Invalid username or token. Password authentication is not supported for Git operations.`
 - In other words, the Windows credential bridge was good enough for read access but not reliable enough for Ubuntu/OpenClaw write access
 
-**Recommended durable fix on this machine**: use a dedicated SSH key in WSL and route GitHub SSH over port 443.
+**Fallback if `gh` login breaks later**: use a dedicated SSH key in WSL and route GitHub SSH over port 443.
 
 **Why we needed port 443**:
 - Direct SSH from this WSL1 environment failed with:
@@ -346,8 +390,9 @@ git -C /mnt/c/Users/salman/GitHub/salman/openclaw-setup-guide push --dry-run ori
 **Notes**:
 - There does not appear to be a dedicated OpenClaw UI setting for GitHub repo auth on this install
 - The reliable place to configure repo access is the Ubuntu user account that OpenClaw runs under
-- If Windows GitHub sign-in changes later, WSL/OpenClaw will follow the same credential manager path
-- For this machine, the more durable path is the dedicated WSL SSH key over port 443
+- The preferred path on this machine is native `gh` auth in Ubuntu
+- If Windows GitHub sign-in changes later, Ubuntu/OpenClaw will keep working because it now has its own `gh` login
+- SSH-over-443 remains a useful fallback on this machine because direct SSH to port 22 is blocked
 - Do NOT copy GitHub tokens into this repo or into tracked docs
 
 If it works, the final command should return:
