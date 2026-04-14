@@ -259,6 +259,97 @@ openclaw models auth order get --provider anthropic
 openclaw agent --agent main --message 'Reply with exactly: OK' --timeout 180
 ```
 
+---
+
+### OpenClaw in Ubuntu cannot access GitHub repos
+
+**What it means**: OpenClaw is running inside WSL Ubuntu, but git in that Ubuntu user does not have working GitHub credentials.
+
+**What we saw on this machine**:
+- Repo remote used HTTPS: `https://github.com/talchemist112-ops/openclaw-setup-guide.git`
+- Ubuntu had no git identity configured
+- `gh` was not installed in Ubuntu
+- SSH to GitHub failed from WSL1: `ssh: connect to host github.com port 22: Connection refused`
+
+**First workaround we tried**: make Ubuntu git reuse the existing Windows Git Credential Manager instead of creating a second separate GitHub login just for WSL/OpenClaw.
+
+**Why this works**:
+- OpenClaw inherits the environment of the Ubuntu user it runs as
+- If git works in WSL for user `salman`, OpenClaw can use the same repo auth
+- This machine already has Windows Git Credential Manager installed at:
+  `/mnt/c/Users/salman/AppData/Local/Programs/Git/mingw64/bin/git-credential-manager.exe`
+
+**Setup**:
+```bash
+git config --global user.name 'salman'
+git config --global user.email 'talchemist112@gmail.com'
+git config --global credential.helper '/mnt/c/Users/salman/AppData/Local/Programs/Git/mingw64/bin/git-credential-manager.exe'
+git config --global credential.https://github.com.useHttpPath true
+```
+
+**Read test that worked**:
+```bash
+git -C /mnt/c/Users/salman/GitHub/salman/openclaw-setup-guide ls-remote origin HEAD
+```
+
+Expected result:
+- A commit hash followed by `HEAD`
+- On this machine it returned `2124761c77d37543ff1cc5f6991df0e7059cf7e5	HEAD`
+
+**Why this was not enough**:
+- A non-interactive `git push --dry-run origin main` still failed with:
+  `remote: Invalid username or token. Password authentication is not supported for Git operations.`
+- In other words, the Windows credential bridge was good enough for read access but not reliable enough for Ubuntu/OpenClaw write access
+
+**Recommended durable fix on this machine**: use a dedicated SSH key in WSL and route GitHub SSH over port 443.
+
+**Why we needed port 443**:
+- Direct SSH from this WSL1 environment failed with:
+  `ssh: connect to host github.com port 22: Connection refused`
+
+**SSH-over-443 setup**:
+```bash
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+ssh-keygen -t ed25519 -N '' -f ~/.ssh/id_ed25519_openclaw_github -C 'openclaw-wsl-salman-github'
+cat >> ~/.ssh/config <<'EOF'
+Host github.com
+  HostName ssh.github.com
+  Port 443
+  User git
+  IdentityFile ~/.ssh/id_ed25519_openclaw_github
+  IdentitiesOnly yes
+EOF
+chmod 600 ~/.ssh/config ~/.ssh/id_ed25519_openclaw_github ~/.ssh/id_ed25519_openclaw_github.pub
+```
+
+**Public key to add in GitHub**:
+```bash
+cat ~/.ssh/id_ed25519_openclaw_github.pub
+```
+
+Then add that key in GitHub:
+- GitHub -> Settings -> SSH and GPG keys -> New SSH key
+
+**After adding the key, switch the repo remote to SSH**:
+```bash
+git -C /mnt/c/Users/salman/GitHub/salman/openclaw-setup-guide remote set-url origin git@github.com:talchemist112-ops/openclaw-setup-guide.git
+```
+
+**Then test**:
+```bash
+ssh -T git@github.com
+git -C /mnt/c/Users/salman/GitHub/salman/openclaw-setup-guide ls-remote origin HEAD
+git -C /mnt/c/Users/salman/GitHub/salman/openclaw-setup-guide push --dry-run origin main
+```
+
+**Notes**:
+- There does not appear to be a dedicated OpenClaw UI setting for GitHub repo auth on this install
+- The reliable place to configure repo access is the Ubuntu user account that OpenClaw runs under
+- If Windows GitHub sign-in changes later, WSL/OpenClaw will follow the same credential manager path
+- For this machine, the more durable path is the dedicated WSL SSH key over port 443
+- Do NOT copy GitHub tokens into this repo or into tracked docs
+
 If it works, the final command should return:
 
 ```text

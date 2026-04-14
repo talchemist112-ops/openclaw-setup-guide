@@ -32,6 +32,10 @@ OpenClaw is **partially deployed** on this server. Here's what's done and what's
 - **OpenAI API key** — configured in `~/.bashrc` as `OPENAI_API_KEY` (DO NOT commit to git)
 - **Claude Code OAuth profile**: `anthropic:claude-cli` added to OpenClaw auth store from Windows Claude Code credentials (DO NOT commit tokens)
 - **Claude Code credential source**: `C:\Users\salman\.claude\.credentials.json` on Windows. On this machine it appears to be maintained by the VS Code Claude Code extension (`anthropic.claude-code-*`), not by a separate standalone Claude CLI install.
+- **Ubuntu git identity for OpenClaw**: `user.name=salman`, `user.email=talchemist112@gmail.com`
+- **Ubuntu GitHub read-auth bridge**: git inside WSL can call Windows Git Credential Manager at `/mnt/c/Users/salman/AppData/Local/Programs/Git/mingw64/bin/git-credential-manager.exe`, but this was not sufficient for non-interactive push auth
+- **Ubuntu GitHub SSH key for OpenClaw**: `~/.ssh/id_ed25519_openclaw_github`
+- **Ubuntu SSH config for GitHub**: `github.com` routed to `ssh.github.com:443` in `~/.ssh/config` because direct SSH on port 22 is blocked from this WSL1 environment
 - **Default model**: `anthropic/claude-sonnet-4-20250514`
 - **Auth order for Anthropic**: `anthropic:claude-cli`, then `anthropic:default`
 - **Gateway confirmed working** with Claude Sonnet model via Claude Code OAuth profile
@@ -112,6 +116,9 @@ openclaw dashboard
 - **Default model**: `anthropic/claude-sonnet-4-20250514` (user-configured)
 - **Fallback model**: OpenAI key also configured — can switch with `openclaw config set agents.defaults.model openai/gpt-4o`
 - **API keys location**: `~/.bashrc` inside WSL (NEVER in git-tracked files)
+- **GitHub repo auth for OpenClaw**: inherited from WSL user `salman` via git credential helper, not a separate OpenClaw UI login
+- **WSL git credential helper**: `/mnt/c/Users/salman/AppData/Local/Programs/Git/mingw64/bin/git-credential-manager.exe`
+- **Recommended durable GitHub auth for OpenClaw on this machine**: SSH key in WSL over port 443 after adding `~/.ssh/id_ed25519_openclaw_github.pub` to GitHub
 
 ### Networking
 - Gateway binds to `127.0.0.1:18789` (loopback only — accessible from Windows browser, NOT from external machines)
