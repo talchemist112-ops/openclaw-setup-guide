@@ -31,6 +31,7 @@ OpenClaw is **partially deployed** on this server. Here's what's done and what's
 - **Anthropic API key** — configured in `~/.bashrc` as `ANTHROPIC_API_KEY` (DO NOT commit to git)
 - **OpenAI API key** — configured in `~/.bashrc` as `OPENAI_API_KEY` (DO NOT commit to git)
 - **Claude Code OAuth profile**: `anthropic:claude-cli` added to OpenClaw auth store from Windows Claude Code credentials (DO NOT commit tokens)
+- **Claude Code credential source**: `C:\Users\salman\.claude\.credentials.json` on Windows. On this machine it appears to be maintained by the VS Code Claude Code extension (`anthropic.claude-code-*`), not by a separate standalone Claude CLI install.
 - **Default model**: `anthropic/claude-sonnet-4-20250514`
 - **Auth order for Anthropic**: `anthropic:claude-cli`, then `anthropic:default`
 - **Gateway confirmed working** with Claude Sonnet model via Claude Code OAuth profile
@@ -47,6 +48,7 @@ OpenClaw is **partially deployed** on this server. Here's what's done and what's
 ### SECURITY — API Keys
 - API keys are stored in `/home/salman/.bashrc` and OpenClaw auth profiles inside WSL (local to this machine)
 - Claude Code OAuth source credentials are on Windows at `C:\Users\salman\.claude\.credentials.json`; copied into OpenClaw auth profiles as `anthropic:claude-cli`
+- If Claude Code OAuth stops working, re-authenticate the Claude Code extension / client on Windows first, then re-sync OpenClaw from the refreshed `C:\Users\salman\.claude\.credentials.json`
 - **NEVER** commit keys to git, CLAUDE.md, or any tracked file
 - To rotate keys: edit `~/.bashrc` and/or refresh Claude Code login, update auth profiles, restart gateway
 - Anthropic console: https://console.anthropic.com (set spending limits here)
@@ -290,6 +292,17 @@ Casual daily use ≈ $0.50-$5/day depending on model and usage.
 - **Solution applied**: Copied the Windows Claude Code OAuth credential from `C:\Users\salman\.claude\.credentials.json` into `/home/salman/.openclaw/agents/main/agent/auth-profiles.json` as `anthropic:claude-cli`, set Anthropic auth order to `anthropic:claude-cli, anthropic:default`, switched default model back to `anthropic/claude-sonnet-4-20250514`, and restarted the gateway.
 - **Verification**: `openclaw agent --agent main --message 'Reply with exactly: OK' --timeout 180` returned `OK`.
 - **Don't try**: Treating the 7:18-7:25 dashboard entries as current after the 7:29 restart; those were historical pre-fix auth-schema errors. The later blocker was provider billing, then solved by Claude Code OAuth.
+
+### Issue: Claude Code credential unavailable / OAuth refresh failed (2026-04-13)
+- **Symptom**: OpenClaw reported `OAuth token refresh failed for anthropic: claude-code credential is unavailable; re-authenticate in the external CLI and retry`.
+- **Root cause**: OpenClaw uses a copied Claude Code OAuth credential inside `/home/salman/.openclaw/agents/main/agent/auth-profiles.json`, while the source credential lives on Windows at `C:\Users\salman\.claude\.credentials.json`. On this machine, that Windows file appears to be maintained by the VS Code Claude Code extension. If the Windows credential is refreshed but OpenClaw still has the older copied token, refresh can fail until the OpenClaw copy is updated.
+- **Solution**:
+  1. Check `C:\Users\salman\.claude\.credentials.json` on Windows.
+  2. If it has already been refreshed, re-sync OpenClaw from that file into `anthropic:claude-cli`.
+  3. Clear stale failure state in `/home/salman/.openclaw/agents/main/agent/auth-state.json`.
+  4. Restart the gateway.
+  5. Only if the Windows Claude credential itself is invalid, re-authenticate Claude Code / the VS Code Claude Code extension first, then re-sync OpenClaw.
+- **Verification**: Compare expiry timestamps. On 2026-04-13, the Windows Claude credential had a newer expiry than the OpenClaw copy, so re-syncing the copied profile was the right first step.
 
 ### Issue: tmux session doesn't inherit environment variables
 - **Symptom**: Gateway starts but uses wrong model or "no API key" errors

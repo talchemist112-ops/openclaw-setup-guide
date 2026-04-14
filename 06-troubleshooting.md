@@ -199,6 +199,11 @@ This means:
 
 **Fix / workaround**: Use **Claude Code OAuth** instead of the Anthropic API key.
 
+**Important note for this machine**:
+- The Claude Code OAuth source file is `C:\Users\salman\.claude\.credentials.json`
+- On this machine that file appears to come from the VS Code Claude Code extension (`anthropic.claude-code-*`)
+- OpenClaw is not authenticating through VS Code directly; it is reusing the credential stored in that file
+
 **How we achieved it**:
 ```powershell
 # Make sure Claude Code is already logged in on Windows.
@@ -264,6 +269,10 @@ OK
 - Don't keep debugging `auth-profiles.json` if the log clearly says `credit balance is too low` or `quota exceeded`
 - Don't assume old dashboard log entries are current after a gateway restart
 - Don't commit `C:\Users\salman\.claude\.credentials.json` or copied OAuth tokens to git
+
+If OpenClaw later says `claude-code credential is unavailable; re-authenticate in the external CLI and retry`, re-authenticate Claude Code on Windows first so `C:\Users\salman\.claude\.credentials.json` gets refreshed, then re-sync OpenClaw from that file.
+
+If Windows Claude Code is already working but OpenClaw still shows the same refresh error, compare the expiry in `C:\Users\salman\.claude\.credentials.json` with the copied `anthropic:claude-cli` entry in `/home/salman/.openclaw/agents/main/agent/auth-profiles.json`. If the Windows file is newer, re-sync OpenClaw from the Windows file and clear the cached failure state in `/home/salman/.openclaw/agents/main/agent/auth-state.json`.
 
 ---
 
